@@ -20,13 +20,14 @@ Note: This is an hackathon-ready minimal demo. We'll iterate next steps to add p
 */
 
 import React, { useRef, useEffect, useState } from 'react'
+import PostClosureAnalysisPanel from './components/PostClosureAnalysisPanel'
+import { parseOsmXmlToGeoJSON } from './utils/osmParser'
+import { computeImpactStats } from './utils/impact'
+import { runDualPhaseSimulation } from './utils/simulation'
 import maplibregl from 'maplibre-gl'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-// No token required with MapLibre + open style
-// You can replace the style URL with any compatible vector style.
-// OSM raster basemap only (centered on Zurich). For production heavy use, cache tiles or use a provider.
 const OSM_RASTER_STYLE = {
   version: 8,
   sources: {
@@ -43,7 +44,7 @@ const OSM_RASTER_STYLE = {
 }
 
 
-export default function TrafficClosureUIStep1() {
+export default function TrafficClosureUI() {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null) // store maplibre instance
   const [sidebarWidth, setSidebarWidth] = useState(420)
@@ -63,6 +64,12 @@ export default function TrafficClosureUIStep1() {
   // OSM bbox always visible now (state removed)
   // Selection state for OSM ways
   const [selectedOsmIds, setSelectedOsmIds] = useState(new Set())
+  // Simulation modal + flow
+  const [showSimModal, setShowSimModal] = useState(false)
+  const [crowdLevel, setCrowdLevel] = useState('medium') // low|medium|high
+  const [simulationPhase, setSimulationPhase] = useState(null) // 'baseline' | 'closures' | null
+  const [simulationProgress, setSimulationProgress] = useState(0) // 0..100
+  const [analysisMode, setAnalysisMode] = useState(false) // switch to new page after sim
 
   // Helpers to safely interact with map style
   function styleIsReady() {
@@ -202,6 +209,21 @@ export default function TrafficClosureUIStep1() {
                   'line-color': '#ff9800'
                 }
               })
+              // Pre-create hover layer so hover works before simulation
+              if (!map.getLayer('roads-hover')) {
+                map.addLayer({
+                  id: 'roads-hover',
+                  type: 'line',
+                  source: 'roads',
+                  filter: ['in','osm_way_id',''],
+                  paint: {
+                    'line-width': 6,
+                    'line-color': '#ffe55c',
+                    'line-opacity': 0.75
+                  },
+                  layout: { 'visibility': 'none' }
+                })
+              }
             } catch (e) {
               console.warn('addSource/addLayer before style ready, retrying', e)
               return false
@@ -219,7 +241,7 @@ export default function TrafficClosureUIStep1() {
     loadRoads()
   }, [mapReady])
 
-  // Load & parse OSM bbox XML (client-side). This is a lightweight DOM parse; for large extracts consider preprocessing to GeoJSON server-side.
+  // Load & parse OSM bbox XML (client-side). Moved parsing logic to utils/osmParser.
   useEffect(() => {
     if (!mapReady) return
     if (osmBboxGeoJSON || osmBboxLoading) return
@@ -229,47 +251,8 @@ export default function TrafficClosureUIStep1() {
         const resp = await fetch('/data/osm_bbox.osm.xml')
         if (!resp.ok) throw new Error('HTTP ' + resp.status)
         const text = await resp.text()
-        const parser = new DOMParser()
-        const xml = parser.parseFromString(text, 'application/xml')
-        const nodeEls = Array.from(xml.getElementsByTagName('node'))
-        const nodes = new Map()
-        nodeEls.forEach(n => {
-          const id = n.getAttribute('id')
-          const lat = parseFloat(n.getAttribute('lat'))
-            , lon = parseFloat(n.getAttribute('lon'))
-          if (!isNaN(lat) && !isNaN(lon)) nodes.set(id, [lon, lat])
-        })
-        const ways = Array.from(xml.getElementsByTagName('way'))
-        const features = []
-        ways.forEach(w => {
-          const tags = Array.from(w.getElementsByTagName('tag')).reduce((acc, t) => { acc[t.getAttribute('k')] = t.getAttribute('v'); return acc }, {})
-          if (!('highway' in tags)) return
-          const ndRefs = Array.from(w.getElementsByTagName('nd')).map(nd => nd.getAttribute('ref')).filter(r => nodes.has(r))
-          if (ndRefs.length < 2) return
-          const coords = ndRefs.map(r => nodes.get(r))
-          // length calculation (haversine sum)
-          let lengthKm = 0
-          for (let i=1;i<coords.length;i++) {
-            const [lon1, lat1] = coords[i-1]
-            const [lon2, lat2] = coords[i]
-            const R = 6371
-            const dLat = (lat2-lat1)*Math.PI/180
-            const dLon = (lon2-lon1)*Math.PI/180
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2
-            const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-            lengthKm += R*c
-          }
-          const highway = tags.highway
-          const name = tags.name || null
-          const feat = {
-            type: 'Feature',
-            properties: { osm_id: w.getAttribute('id'), highway, name, length_km: Number(lengthKm.toFixed(3)) },
-            geometry: { type: 'LineString', coordinates: coords }
-          }
-          features.push(feat)
-        })
-        const gj = { type: 'FeatureCollection', features }
-        console.log('[OSM parse] ways(total):', ways.length, 'highway ways:', features.length)
+        const gj = parseOsmXmlToGeoJSON(text)
+        console.log('[OSM parse] highway ways:', gj.features.length)
         setOsmBboxGeoJSON(gj)
       } catch (e) {
         console.warn('Failed parsing OSM bbox', e)
@@ -349,6 +332,7 @@ export default function TrafficClosureUIStep1() {
     const map = mapRef.current
     if (!map) return
     function onRoadClick(e) {
+      if (analysisMode) return // disable selecting after simulation
       if (map.getLayer('osm-bbox-lines')) {
         const osmFeats = map.queryRenderedFeatures(e.point, { layers: ['osm-bbox-lines'] })
         if (osmFeats && osmFeats.length) {
@@ -380,7 +364,7 @@ export default function TrafficClosureUIStep1() {
     }
     map.on('click', onRoadClick)
     return () => map.off('click', onRoadClick)
-  }, [mapReady])
+  }, [mapReady, analysisMode])
 
   // Hover interaction for OSM ways: highlight + pointer cursor
   useEffect(() => {
@@ -410,32 +394,99 @@ export default function TrafficClosureUIStep1() {
     }
     if (!ensureHoverLayer()) safeRun(ensureHoverLayer, 150, 20)
     let currentHover = null
-    function onMove(e) {
-      if (!map.getLayer('osm-bbox-lines')) return
-      const feats = map.queryRenderedFeatures(e.point, { layers: ['osm-bbox-lines'] })
+    // Ensure roads hover layer
+    function ensureRoadsHoverLayer() {
+      if (!styleIsReady()) return false
+      if (!map.getSource('roads')) return false
+      if (!map.getLayer('roads-hover')) {
+        try {
+          map.addLayer({
+            id: 'roads-hover',
+            type: 'line',
+            source: 'roads',
+            filter: ['in','osm_way_id',''],
+            paint: {
+              'line-width': 6,
+              'line-color': '#ffe55c',
+              'line-opacity': 0.75
+            },
+            layout: { 'visibility': 'none' }
+          })
+        } catch (e) { return false }
+      }
+      return true
+    }
+    if (!ensureRoadsHoverLayer()) safeRun(ensureRoadsHoverLayer, 150, 15)
+
+    const HOVER_DEBOUNCE_MS = 35
+    let hoverTimer = null
+    function runHoverLogic(e) {
+      if (analysisMode) return
+      const pickLayers = []
+      if (map.getLayer('osm-bbox-lines')) pickLayers.push('osm-bbox-lines')
+      if (map.getLayer('roads-base')) pickLayers.push('roads-base')
+      if (!pickLayers.length) return
+      const feats = map.queryRenderedFeatures(e.point, { layers: pickLayers })
       if (feats.length) {
-        const id = feats[0].properties.osm_id
-        if (id !== currentHover) {
-          currentHover = id
-          if (map.getLayer('osm-bbox-hover')) {
-            map.setFilter('osm-bbox-hover', ['in','osm_id', id])
-            map.setLayoutProperty('osm-bbox-hover','visibility','visible')
+        const f = feats[0]
+        if (f.layer.id === 'osm-bbox-lines') {
+          const id = f.properties.osm_id
+          if (id !== currentHover) {
+            currentHover = id
+            if (map.getLayer('osm-bbox-hover')) {
+              map.setFilter('osm-bbox-hover', ['in','osm_id', id])
+              map.setLayoutProperty('osm-bbox-hover','visibility','visible')
+            }
+            if (map.getLayer('roads-hover')) {
+              map.setLayoutProperty('roads-hover','visibility','none')
+              map.setFilter('roads-hover', ['in','osm_way_id',''])
+            }
+          }
+        } else if (f.layer.id === 'roads-base') {
+          const rid = f.properties.osm_way_id
+          if (rid !== currentHover) {
+            currentHover = rid
+            if (map.getLayer('roads-hover')) {
+              map.setFilter('roads-hover', ['in','osm_way_id', rid])
+              map.setLayoutProperty('roads-hover','visibility','visible')
+            }
+            if (map.getLayer('osm-bbox-hover')) {
+              map.setLayoutProperty('osm-bbox-hover','visibility','none')
+              map.setFilter('osm-bbox-hover', ['in','osm_id',''])
+            }
           }
         }
         map.getCanvas().style.cursor = 'pointer'
       } else {
-        if (currentHover && map.getLayer('osm-bbox-hover')) {
-          map.setLayoutProperty('osm-bbox-hover','visibility','none')
-          map.setFilter('osm-bbox-hover', ['in','osm_id',''])
+        if (currentHover) {
+          if (map.getLayer('osm-bbox-hover')) {
+            map.setLayoutProperty('osm-bbox-hover','visibility','none')
+            map.setFilter('osm-bbox-hover', ['in','osm_id',''])
+          }
+          if (map.getLayer('roads-hover')) {
+            map.setLayoutProperty('roads-hover','visibility','none')
+            map.setFilter('roads-hover', ['in','osm_way_id',''])
+          }
         }
         currentHover = null
         map.getCanvas().style.cursor = ''
       }
     }
+    function onMove(e) {
+      if (hoverTimer) return
+      hoverTimer = setTimeout(() => {
+        hoverTimer = null
+        runHoverLogic(e)
+      }, HOVER_DEBOUNCE_MS)
+    }
     function onLeave() {
       if (map.getLayer('osm-bbox-hover')) {
         map.setLayoutProperty('osm-bbox-hover','visibility','none')
         map.setFilter('osm-bbox-hover', ['in','osm_id',''])
+      }
+      if (map.getLayer('roads-hover')) {
+        map.setLayoutProperty('roads-hover','visibility','none')
+        map.setFilter('roads-hover', ['in','osm_way_id',''])
       }
       map.getCanvas().style.cursor = ''
       currentHover = null
@@ -445,8 +496,9 @@ export default function TrafficClosureUIStep1() {
     return () => {
       map.off('mousemove', onMove)
       map.off('mouseleave', 'osm-bbox-lines', onLeave)
+      if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null }
     }
-  }, [mapReady])
+  }, [mapReady, analysisMode])
 
   // Sidebar resize handlers
   useEffect(() => {
@@ -471,79 +523,8 @@ export default function TrafficClosureUIStep1() {
     }
   }, [])
 
-  // --- Stats (pseudo-random placeholders) ---
-  // Deterministic hash for stable pseudo-random numbers per osm_id
-  function hashId(id) {
-    let h = 0
-    for (let i=0;i<id.length;i++) {
-      h = Math.imul(31, h) + id.charCodeAt(i) | 0
-    }
-    return h >>> 0
-  }
-
-  const stats = React.useMemo(() => {
-    if (!osmBboxGeoJSON || !selectedOsmIds.size) return null
-  const rows = []
-  let totalKm = 0 // keep km internally; convert to meters in UI
-    const nameSeedCache = new Map() // normalize name -> vehiclesPerHour seed
-    const norm = (s) => (s||'').toLowerCase().trim()
-    Array.from(selectedOsmIds).forEach(id => {
-      const feat = osmBboxGeoJSON.features.find(f => f.properties.osm_id === id)
-      if (!feat) return
-      const { length_km, name, highway } = feat.properties
-      totalKm += (length_km || 0)
-      const baseByType = { motorway: 1800, trunk: 1500, primary: 1200, secondary: 800, tertiary: 500, residential: 250, service: 120 }
-      let vehiclesPerHour
-      const n = norm(name)
-      if (n) {
-        if (!nameSeedCache.has(n)) {
-          const h = hashId(n)
-            , fluct = (h % 400) - 200
-          const base = baseByType[highway] || 300
-          vehiclesPerHour = Math.max(40, base + fluct * 0.5 | 0)
-          nameSeedCache.set(n, vehiclesPerHour)
-        } else {
-          vehiclesPerHour = nameSeedCache.get(n)
-        }
-      } else {
-        const h = hashId(id)
-        const fluct = (h % 400) - 200
-        const base = baseByType[highway] || 300
-        vehiclesPerHour = Math.max(40, base + fluct * 0.6 | 0)
-      }
-      rows.push({ id, name, highway, length_km, vehiclesPerHour })
-    })
-    const sumVehicles = rows.reduce((a,r) => a + r.vehiclesPerHour, 0)
-    const areaVehicles = sumVehicles * 1.35 + 500
-    const forceExtremeNames = new Set(['münsterbrücke','rathausbrücke','rudolf-brun-brücke','mühlesteg'])
-    rows.forEach(r => {
-      r.share = r.vehiclesPerHour / areaVehicles
-      // New impact formula: emphasize length more strongly.
-      // Base idea: (vehicles^0.9) * (share^0.65) * (1 + length_km * 1.8)
-      const len = r.length_km || 0
-      const impactScore = Math.pow(r.vehiclesPerHour, 0.9) * Math.pow(r.share, 0.65) * (1 + len * 1.8)
-      let category
-      if (forceExtremeNames.has((r.name||'').toLowerCase())) {
-        category = 'extreme'
-      } else if (impactScore < 130) category = 'non-impactful'
-      else if (impactScore < 300) category = 'low'
-      else if (impactScore < 680) category = 'impactful'
-      else if (impactScore < 1250) category = 'very'
-      else category = 'extreme'
-
-      // Enforce user-specified minimums by highway type:
-      // footway => always non-impactful
-      if (r.highway === 'footway') category = 'non-impactful'
-      // residential => at least 'low'
-      if (r.highway === 'residential' && (category === 'non-impactful')) category = 'low'
-      // tertiary => at least 'impactful' (treat 'impactful' as medium)
-      if (r.highway === 'tertiary' && (category === 'non-impactful' || category === 'low')) category = 'impactful'
-      r.category = category
-      r.impactScore = impactScore
-    })
-    const distribution = rows.reduce((acc,r) => { acc[r.category] = (acc[r.category]||0)+1; return acc }, {})
-    return { totalKm: Number(totalKm.toFixed(3)), areaVehicles: Math.round(areaVehicles), rows, distribution }
-  }, [osmBboxGeoJSON, selectedOsmIds])
+  // Stats computation moved to utils/impact
+  const stats = React.useMemo(() => computeImpactStats(osmBboxGeoJSON, selectedOsmIds), [osmBboxGeoJSON, selectedOsmIds])
 
   function categoryColor(cat) {
     switch(cat) {
@@ -581,10 +562,25 @@ export default function TrafficClosureUIStep1() {
 
   // Removed demo lane metrics.
 
+  // Kick off dual-phase simulated loading
+  function startSimulation() {
+    if (!selectedOsmIds.size) return
+    runDualPhaseSimulation({
+      onPhaseChange: setSimulationPhase,
+      onProgress: setSimulationProgress,
+      onDone: () => {
+        setShowSimModal(false)
+        setAnalysisMode(true)
+      }
+    })
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', fontFamily: 'system-ui, Roboto, Arial, sans-serif', userSelect: resizingRef.current ? 'none':'auto' }}>
-      {/* Sidebar */}
+      {/* Sidebar (selection vs analysis modes) */}
       <aside style={{ width: sidebarWidth, padding: 18, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 20, display:'flex', flexDirection:'column' }}>
+        {!analysisMode && (
+          <>
         <h1 style={{ fontSize: 21, fontWeight: 600, marginBottom: 6 }}>Critical Road Impact Analyzer</h1>
         <p style={{ fontSize: 12.5, lineHeight: 1.4, color: '#444', marginBottom: 12 }}>
           Click street segments in the map to build a closure set. The panel below estimates relative traffic exposure and impact.
@@ -681,10 +677,7 @@ export default function TrafficClosureUIStep1() {
         </div>
         <div style={{ marginTop:'auto', textAlign:'center', paddingTop:10 }}>
           <button
-            onClick={() => {
-              const statsEl = document.getElementById('stats-section')
-              if (statsEl) statsEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }}
+            onClick={() => { if (selectedOsmIds.size) setShowSimModal(true) }}
             disabled={!selectedOsmIds.size}
             style={{
               background: selectedOsmIds.size ? 'linear-gradient(90deg,#1d4ed8,#2563eb)' : '#9ca3af',
@@ -701,11 +694,20 @@ export default function TrafficClosureUIStep1() {
               minWidth: 200,
               marginBottom: 4
             }}
-            title={selectedOsmIds.size ? 'Scroll to analysis' : 'Select at least one street'}
+            title={selectedOsmIds.size ? 'Configure simulation parameters' : 'Select at least one street'}
             onMouseDown={e => { if (selectedOsmIds.size) e.currentTarget.style.transform='translateY(1px)' }}
             onMouseUp={e => { e.currentTarget.style.transform='none' }}
           >ANALYZE TRAFFIC</button>
         </div>
+          </>
+        )}
+        {analysisMode && (
+          <PostClosureAnalysisPanel
+            onBack={() => setAnalysisMode(false)}
+            crowdLevel={crowdLevel}
+            selectedCount={selectedOsmIds.size}
+          />
+        )}
       </aside>
       {/* Resize handle */}
       <div
@@ -724,6 +726,52 @@ export default function TrafficClosureUIStep1() {
           </div>
         )}
         <div ref={mapContainerRef} style={{ position: 'absolute', inset: 0 }} />
+        {showSimModal && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50 }}>
+            <div style={{ width:380, background:'#fff', borderRadius:10, boxShadow:'0 8px 28px -4px rgba(0,0,0,0.35)', padding:'20px 22px', maxHeight:'80vh', display:'flex', flexDirection:'column' }}>
+              <h2 style={{ margin:0, fontSize:18, fontWeight:600, marginBottom:4 }}>Simulation Setup</h2>
+              <div style={{ fontSize:12.5, color:'#555', marginBottom:14 }}>Adjust scenario parameters and start the two-phase analysis.</div>
+              <label style={{ fontSize:12, fontWeight:600, marginBottom:4 }}>Estimated crowd level</label>
+              <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                {['low','medium','high'].map(l => (
+                  <button key={l} onClick={() => setCrowdLevel(l)} style={{
+                    flex:1,
+                    background: crowdLevel===l ? '#2563eb' : '#f1f5f9',
+                    color: crowdLevel===l ? '#fff':'#334155',
+                    border:'1px solid ' + (crowdLevel===l ? '#1d4ed8':'#cbd5e1'),
+                    padding:'8px 6px',
+                    borderRadius:6,
+                    fontSize:12,
+                    cursor:'pointer',
+                    fontWeight: crowdLevel===l ? 600:500
+                  }}>{l.charAt(0).toUpperCase()+l.slice(1)}</button>
+                ))}
+              </div>
+              {simulationPhase && (
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>
+                    {simulationPhase === 'baseline' ? 'Phase 1: Calibrating baseline network' : 'Phase 2: Evaluating closures'}
+                  </div>
+                  <div style={{ height:10, background:'#e2e8f0', borderRadius:6, overflow:'hidden', position:'relative' }}>
+                    <div style={{ width: simulationProgress+'%', height:'100%', background: simulationPhase==='baseline' ? 'linear-gradient(90deg,#0ea5e9,#2563eb)' : 'linear-gradient(90deg,#f59e0b,#d97706)', transition:'width .15s' }} />
+                  </div>
+                  <div style={{ marginTop:6, fontSize:11, color:'#555' }}>{Math.round(simulationProgress)}%</div>
+                </div>
+              )}
+              {!simulationPhase && (
+                <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4 }}>
+                  <button onClick={() => setShowSimModal(false)} style={{ background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#334155', padding:'8px 14px', fontSize:12, borderRadius:6, cursor:'pointer' }}>Cancel</button>
+                  <button disabled={!selectedOsmIds.size} onClick={startSimulation} style={{ background:'#2563eb', border:'none', color:'#fff', padding:'8px 16px', fontSize:12, borderRadius:6, cursor:selectedOsmIds.size?'pointer':'default', fontWeight:600 }}>Start simulation</button>
+                </div>
+              )}
+              {simulationPhase && (
+                <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
+                  <button disabled style={{ background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#94a3b8', padding:'6px 12px', fontSize:11, borderRadius:6 }}>Running…</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
