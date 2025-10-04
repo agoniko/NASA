@@ -13,7 +13,6 @@ if tools_path not in sys.path:
 # Ora che il path è impostato, possiamo importare traci
 import traci
 
-
 # --- 2. PARAMETRI DELLA SIMULAZIONE ---
 SUMOCFG_PATH = "/Users/nicoloagostara/Sumo/2025-10-02-23-11-00/osm.sumocfg"
 SIMULATION_DURATION = 7200  # Secondi
@@ -37,6 +36,7 @@ def run_simulation():
     traci.start(sumo_cmd)
 
     step = 0
+
     edge_closed = False
 
     try:
