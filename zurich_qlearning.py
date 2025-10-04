@@ -8,9 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'sumo-rl'))
 # Set the SUMO_HOME environment variable
 # Make sure this path is correct for your SUMO installation
 if "SUMO_HOME" not in os.environ:
-    print("here")
     os.environ["SUMO_HOME"] = "/Applications/sumo-1.24.0"
-    # os.environ["SUMO_HOME"] = "Library/Frameworks/EclipseSUMO.framework/EclipseSUMO/bin/"
 
 if "SUMO_HOME" in os.environ:
     tools = os.path.join(os.environ["SUMO_HOME"], "tools")
@@ -32,8 +30,8 @@ if __name__ == "__main__":
     runs = 1
 
     # --- SIMULATION PARAMETERS ---
-    net_file = "/Users/nicoloagostara/Sumo/2025-10-04-15-09-10/osm.net.xml.gz"
-    route_file = "/Users/nicoloagostara/Sumo/2025-10-04-15-09-10/osm.passenger.trips.xml"
+    net_file = "2025-10-04-17-25-24/osm.net.xml.gz"
+    route_file = "2025-10-04-17-25-24/osm.passenger.rou.xml"
     use_gui = False  # Set to True to watch the simulation
     num_seconds = 3600  # Total simulation time in seconds
     min_green_time = 5  # Minimum green time for a phase
@@ -52,6 +50,7 @@ if __name__ == "__main__":
         min_green=min_green_time,
         delta_time=delta_time,
         out_csv_name=out_csv_name,
+        additional_sumo_cmd="--tls.discard-simple",
     )
 
     # --- TRAINING LOOP ---

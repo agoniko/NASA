@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-10-04 17:25:31 by Eclipse SUMO GUI Version 1.24.0
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/osm.net.xml.gz"/>
+        <route-files value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/osm.passenger.trips.xml"/>
+        <additional-files value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/output.add.xml"/>
+    </input>
+
+    <output>
+        <tripinfo-output value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/tripinfos.xml"/>
+        <statistic-output value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/stats.xml"/>
+    </output>
+
+    <processing>
+        <ignore-route-errors value="true"/>
+        <tls.actuated.jam-threshold value="30"/>
+    </processing>
+
+    <routing>
+        <device.rerouting.adaptation-steps value="18"/>
+        <device.rerouting.adaptation-interval value="10"/>
+    </routing>
+
+    <report>
+        <verbose value="true"/>
+        <duration-log.statistics value="true"/>
+        <no-step-log value="true"/>
+    </report>
+
+    <gui_only>
+        <gui-settings-file value="/Users/nicoloagostara/Sumo/2025-10-04-17-25-24/osm.view.xml"/>
+    </gui_only>
+
+</sumoConfiguration>
+-->
+
+<statistics xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/statistic_file.xsd">
+    <performance clockBegin="1759591531.75" clockEnd="1759591556.92" clockDuration="25.17" traciDuration="0.00" realTimeFactor="37.86" vehicleUpdatesPerSecond="315.05" personUpdatesPerSecond="0.00" begin="0.00" end="953.00" duration="953.00"/>
+    <vehicles loaded="62" inserted="56" running="8" waiting="0"/>
+    <teleports total="1" jam="0" yield="0" wrongLane="1"/>
+    <safety collisions="0" emergencyStops="0" emergencyBraking="0"/>
+    <persons loaded="0" running="0" jammed="0"/>
+    <personTeleports total="0" abortWait="0" wrongDest="0"/>
+    <vehicleTripStatistics count="48" routeLength="970.32" speed="6.69" duration="152.35" waitingTime="42.50" timeLoss="71.30" departDelay="0.49" departDelayWaiting="-1.00" totalTravelTime="7313.00" totalDepartDelay="23.36"/>
+    <pedestrianStatistics number="0" routeLength="0.00" duration="0.00" timeLoss="0.00"/>
+    <rideStatistics number="0"/>
+    <transportStatistics number="0"/>
+</statistics>
