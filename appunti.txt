@@ -14,3 +14,5 @@ casa: https://www.booking.com/hotel/ch/city-home-zurich.it.html?aid=375022&label
 
 
 in /Users/nicoloagostara/Sumo/2025-10-02-23-11-00/stats.xml ci sono tempi di percorrenza, waiting time ecc.
+
+edgeData.xml ha le statistiche di pssaggio per ogni edge
