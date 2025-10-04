@@ -3,13 +3,13 @@ import joblib
 from datetime import datetime
 from main import fetch_weather_data_meteostat
 
-def predict_pollution_for_simulation(total_cars, avg_hours_on_street, simulation_date_str):
+def predict_pollution_for_simulation(total_cars, avg_minutes_on_street, simulation_date_str):
     """
     Predicts pollution levels for a given number of cars and their average time on the street.
 
     Args:
         total_cars (int): The total number of cars for the simulation day.
-        avg_hours_on_street (float): The average number of hours each car is on the street.
+        avg_minutes_on_street (float): The average number of minutes each car is on the street.
         simulation_date_str (str): The date of the simulation in 'YYYY-MM-DD' format.
     """
     # --- 1. Load Trained Models ---
@@ -49,7 +49,7 @@ def predict_pollution_for_simulation(total_cars, avg_hours_on_street, simulation
     
     input_data = {
         'traffic': total_cars,
-        'avg_time_on_street': avg_hours_on_street,
+        'avg_time_on_street': avg_minutes_on_street,
         'tavg': weather_data.get('tavg', 0),
         'tmin': weather_data.get('tmin', 0),
         'tmax': weather_data.get('tmax', 0),
@@ -61,7 +61,7 @@ def predict_pollution_for_simulation(total_cars, avg_hours_on_street, simulation
     input_df = pd.DataFrame([input_data], columns=features)
 
     # --- 4. Make and Display Predictions ---
-    print(f"\n--- Pollution Prediction for {simulation_date_str} with {total_cars} cars, avg. {avg_hours_on_street} hours on street ---")
+    print(f"\n--- Pollution Prediction for {simulation_date_str} with {total_cars} cars, avg. {avg_minutes_on_street} minutes on street ---")
     for pollutant, model in models.items():
         prediction = model.predict(input_df)
         print(f"Predicted {pollutant.upper()}: {prediction[0]:.2f} µg/m³")
@@ -69,13 +69,13 @@ def predict_pollution_for_simulation(total_cars, avg_hours_on_street, simulation
 if __name__ == '__main__':
     # Example usage:
     simulation_cars = 60000
-    simulation_avg_hours = 2.5  # Example: cars are on the street for an average of 2.5 hours
+    simulation_avg_minutes = 60  # Example: cars are on the street for an average of 60 minutes
     
     # We'll predict for today's date.
     simulation_date = datetime.now().strftime('%Y-%m-%d')
     
-    predict_pollution_for_simulation(simulation_cars, simulation_avg_hours, simulation_date)
+    predict_pollution_for_simulation(simulation_cars, simulation_avg_minutes, simulation_date)
 
     # Example with different average time
-    simulation_avg_hours_more = 4.0
-    predict_pollution_for_simulation(simulation_cars, simulation_avg_hours_more, simulation_date)
+    simulation_avg_minutes_more = 62
+    predict_pollution_for_simulation(simulation_cars, simulation_avg_minutes_more, simulation_date)

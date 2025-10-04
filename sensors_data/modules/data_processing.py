@@ -52,15 +52,15 @@ def generate_daily_traffic_data(input_file, output_file):
                 if day_of_week < 5:  # Weekday
                     mean_traffic = weekday_avg
                     # Simulate higher avg time on street during weekdays (commute)
-                    avg_time = np.random.uniform(1.5, 4.0)
+                    avg_time = np.random.uniform(55, 65) # Around 1 hour
                 elif day_of_week == 5:  # Saturday
                     mean_traffic = saturday_avg
                     # Moderate time on street for leisure/shopping
-                    avg_time = np.random.uniform(1.0, 3.0)
+                    avg_time = np.random.uniform(40, 50)
                 else:  # Sunday
                     mean_traffic = sunday_avg
                     # Lower time on street
-                    avg_time = np.random.uniform(0.5, 2.5)
+                    avg_time = np.random.uniform(40, 50)
                 
                 # Generate a random traffic value from a normal distribution
                 std_dev = mean_traffic * std_dev_percentage
