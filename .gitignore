@@ -1,0 +1,15 @@
+// ...existing code...
+venv
+# ignore caches and common Python/IDE artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+# IDE / OS
+.vscode/
+Thumbs.db
+.DS_Store
