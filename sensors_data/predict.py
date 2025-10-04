@@ -3,12 +3,13 @@ import joblib
 from datetime import datetime
 from main import fetch_weather_data_meteostat
 
-def predict_pollution_for_simulation(total_cars, simulation_date_str):
+def predict_pollution_for_simulation(total_cars, avg_hours_on_street, simulation_date_str):
     """
-    Predicts pollution levels for a given number of cars on a specific date.
+    Predicts pollution levels for a given number of cars and their average time on the street.
 
     Args:
         total_cars (int): The total number of cars for the simulation day.
+        avg_hours_on_street (float): The average number of hours each car is on the street.
         simulation_date_str (str): The date of the simulation in 'YYYY-MM-DD' format.
     """
     # --- 1. Load Trained Models ---
@@ -43,11 +44,12 @@ def predict_pollution_for_simulation(total_cars, simulation_date_str):
         return
 
     # --- 3. Prepare Input Data for Prediction ---
-    # The model was trained on these features, so we need to provide them in the same order.
-    features = ['traffic', 'tavg', 'tmin', 'tmax', 'prcp', 'wspd', 'pres']
+    # The model now expects 'avg_time_on_street' as a feature.
+    features = ['traffic', 'avg_time_on_street', 'tavg', 'tmin', 'tmax', 'prcp', 'wspd', 'pres']
     
     input_data = {
         'traffic': total_cars,
+        'avg_time_on_street': avg_hours_on_street,
         'tavg': weather_data.get('tavg', 0),
         'tmin': weather_data.get('tmin', 0),
         'tmax': weather_data.get('tmax', 0),
@@ -59,18 +61,21 @@ def predict_pollution_for_simulation(total_cars, simulation_date_str):
     input_df = pd.DataFrame([input_data], columns=features)
 
     # --- 4. Make and Display Predictions ---
-    print(f"\n--- Pollution Prediction for {simulation_date_str} with {total_cars} cars ---")
+    print(f"\n--- Pollution Prediction for {simulation_date_str} with {total_cars} cars, avg. {avg_hours_on_street} hours on street ---")
     for pollutant, model in models.items():
         prediction = model.predict(input_df)
         print(f"Predicted {pollutant.upper()}: {prediction[0]:.2f} µg/m³")
 
 if __name__ == '__main__':
     # Example usage:
-    # We assume the 60,000 cars represent the total traffic for the entire day
-    # to match the data the model was trained on.
     simulation_cars = 60000
+    simulation_avg_hours = 2.5  # Example: cars are on the street for an average of 2.5 hours
     
     # We'll predict for today's date.
     simulation_date = datetime.now().strftime('%Y-%m-%d')
     
-    predict_pollution_for_simulation(simulation_cars, simulation_date)
+    predict_pollution_for_simulation(simulation_cars, simulation_avg_hours, simulation_date)
+
+    # Example with different average time
+    simulation_avg_hours_more = 4.0
+    predict_pollution_for_simulation(simulation_cars, simulation_avg_hours_more, simulation_date)
