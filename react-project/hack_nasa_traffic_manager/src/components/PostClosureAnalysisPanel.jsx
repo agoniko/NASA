@@ -20,11 +20,11 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
     if (!results) return []
     const { before, after } = results
     const defs = [
-      { key:'avgTravelTimeMin', label:'Tempo di viaggio medio', unit:'min', better:'lower' },
-      { key:'avgDelayMin', label:'Ritardo medio', unit:'min', better:'lower' },
-      { key:'maxDelayMin', label:'Ritardo massimo', unit:'min', better:'lower' },
-      { key:'avgQueueTimeMin', label:'Tempo medio di attesa/coda', unit:'min', better:'lower' },
-      { key:'avgSpeedKmh', label:'Variazione velocità media', unit:'km/h', better:'higher' },
+  { key:'avgTravelTimeMin', label:'Average travel time', unit:'min', better:'lower' },
+  { key:'avgDelayMin', label:'Average delay', unit:'min', better:'lower' },
+  { key:'maxDelayMin', label:'Maximum delay', unit:'min', better:'lower' },
+  { key:'avgQueueTimeMin', label:'Average queue/wait', unit:'min', better:'lower' },
+  { key:'avgSpeedKmh', label:'Average speed change', unit:'km/h', better:'higher' },
       { key:'vkt', label:'Vehicle Kilometres Traveled (VKT)', unit:'km', scale: (v)=> v/1000, decimals:1, better:'depends' },
       { key:'vht', label:'Vehicle Hours Traveled (VHT)', unit:'h', scale: (v)=> v/3600, decimals:1, better:'lower' },
       { key:'pm25', label:'PM2.5', unit:'µg/m³', better:'lower' },
@@ -52,7 +52,7 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <h1 style={{ fontSize:20, fontWeight:600, margin:'0 0 6px 0' }}>Network Impact Analysis</h1>
       <div style={{ fontSize:12.5, color:'#444', marginBottom:14 }}>
-        Risultati della simulazione prima e dopo la chiusura dei segmenti selezionati.
+  Simulation results before and after closing the selected segments.
       </div>
       <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:20 }}>
         <InfoBadge label="Crowd level" value={crowdLevel} />
@@ -61,10 +61,10 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
       </div>
       <section style={{ marginBottom:18, flex:1, display:'flex', flexDirection:'column' }}>
         {results && <ImpactOverview rows={rows} />}
-        <h2 style={{ fontSize:14, margin:'18px 0 10px 0', fontWeight:600 }}>Confronto Before / After</h2>
+  <h2 style={{ fontSize:14, margin:'18px 0 10px 0', fontWeight:600 }}>Before / After Comparison</h2>
         {!results && (
           <div style={{ padding:14, fontSize:12, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8 }}>
-            Nessun risultato ancora. Avvia la simulazione.
+            No results yet. Run the simulation.
           </div>
         )}
         {results && (
@@ -73,7 +73,7 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead style={{ background:'#f1f5f9' }}>
                   <tr>
-                    <th style={thStyle}>Metrica</th>
+                    <th style={thStyle}>Metric</th>
                     <th style={thStyle}>Before</th>
                     <th style={thStyle}>After</th>
                     <th style={thStyle}>Δ %</th>
@@ -94,7 +94,7 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
           </>
         )}
         <div style={{ fontSize:10.5, color:'#555', marginTop:8, lineHeight:1.4 }}>
-          Colori Δ%: verde = miglioramento, rosso = peggioramento, arancione = variazione minima (&lt;3%), viola = interpretazione dipende dal contesto.
+          Δ% colors: green = improvement, red = worse, orange = minor change (&lt;3%), purple = context-dependent (neutral).
         </div>
       </section>
       <div style={{ marginTop:'auto', display:'flex', justifyContent:'space-between', gap:12 }}>
@@ -164,7 +164,7 @@ function ImpactOverview({ rows }) {
         <div style={{ fontSize:11, fontWeight:600, letterSpacing:.5, color:'#475569', textTransform:'uppercase' }}>Impact Score</div>
         <div style={{ fontSize:38, fontWeight:700, color:scoreColor, lineHeight:1 }}>{normalizedScore.toFixed(0)}</div>
         <div style={{ fontSize:10, letterSpacing:.5, color:'#64748b' }}>/100</div>
-        <div style={{ fontSize:10.5, color:'#475569', marginTop:6, lineHeight:1.3 }}>Valuta l'effetto complessivo delle chiusure sui tempi, traffico e emissioni.</div>
+  <div style={{ fontSize:10.5, color:'#475569', marginTop:6, lineHeight:1.3 }}>Assesses overall closure effects on time, traffic and emissions.</div>
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>Radar Impatto (After vs Before)</div>
@@ -196,7 +196,7 @@ function ImpactOverview({ rows }) {
             return <text key={m.key} x={lx} y={ly} fontSize={4.2} textAnchor="middle" fill="#475569">{shortLabel(m.label)}</text>
           })}
         </svg>
-        <div style={{ fontSize:10, color:'#64748b', lineHeight:1.3 }}>Poligono più esteso = migliore performance relativa (normalizzata) dopo la chiusura.</div>
+  <div style={{ fontSize:10, color:'#64748b', lineHeight:1.3 }}>Larger polygon = better normalized post-closure performance.</div>
       </div>
     </div>
   )
@@ -204,11 +204,11 @@ function ImpactOverview({ rows }) {
 
 function shortLabel(label) {
   return label
-    .replace('Tempo di viaggio medio','T. viaggio')
-    .replace('Ritardo medio','Rit. medio')
-    .replace('Variazione velocità media','Velocità')
-    .replace('Vehicle Kilometres Traveled (VKT)','VKT')
-    .replace('Vehicle Hours Traveled (VHT)','VHT')
-    .replace('Tempo medio di attesa/coda','Attesa')
-    .replace('Ritardo massimo','Rit. max')
+  .replace('Average travel time','Travel')
+  .replace('Average delay','Delay')
+  .replace('Average speed change','Speed')
+  .replace('Vehicle Kilometres Traveled (VKT)','VKT')
+  .replace('Vehicle Hours Traveled (VHT)','VHT')
+  .replace('Average queue/wait','Queue')
+  .replace('Maximum delay','Max delay')
 }

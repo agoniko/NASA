@@ -149,7 +149,7 @@ export default function TrafficClosureUI() {
     // Safety: if "load" doesn't fire within 8s, downgrade to dismissible warning only once.
     const loadTimeoutId = setTimeout(() => {
       if (!loadFired) {
-        const msg = 'Warning: map style non completamente caricato dopo 8s. Continuiamo in modalità degradata.'
+  const msg = 'Warning: map style not fully loaded after 8s. Continuing in degraded mode.'
         console.warn(msg)
         setLastError(prev => prev || msg)
       }
@@ -509,7 +509,7 @@ export default function TrafficClosureUI() {
 
   function exportSelectedEdges(format = 'json') {
     const edges = Array.from(selectedSumoEdges)
-    if (!edges.length) return alert('Nessuna strada selezionata (SUMO edges)')
+  if (!edges.length) return alert('No road selected (SUMO edges)')
     if (format === 'json') {
       const blob = new Blob([JSON.stringify({ edges }, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -561,18 +561,23 @@ export default function TrafficClosureUI() {
         if (!simulationResults) return
         const baseAfter = simulationResults.after
         const optimized = { ...baseAfter }
-        // Reduce negative impacts by some factors (mock improvement)
-        optimized.avgTravelTimeMin *= 0.93
-        optimized.avgDelayMin *= 0.84
-        optimized.maxDelayMin *= 0.9
-        optimized.avgQueueTimeMin *= 0.88
-        optimized.avgSpeedKmh *= 1.07
-        optimized.vkt *= 0.995
-        optimized.vht *= 0.92
-        optimized.pm25 *= 0.95
-        optimized.o3 *= 0.99
-        optimized.no2 *= 0.94
-        optimized.pm10 *= 0.95
+        /*
+          Adjusted synthetic optimization:
+          - Improvements toned down (~reductions scaled by 2/3 of previous delta) so they look more realistic.
+          - One metric left neutral (vkt) to show no change.
+          - One metric intentionally worsened (pm10) to demonstrate trade‑offs.
+        */
+        optimized.avgTravelTimeMin *= 0.953   // was 0.93 (now ~4.7% better vs 7%)
+        optimized.avgDelayMin *= 0.893        // was 0.84 (now ~10.7% better vs 16%)
+        optimized.maxDelayMin *= 0.933        // was 0.90
+        optimized.avgQueueTimeMin *= 0.920    // was 0.88
+        optimized.avgSpeedKmh *= 1.047        // was 1.07
+        optimized.vkt *= 1.000                // neutral (previously slight improvement)
+        optimized.vht *= 0.947                // was 0.92
+        optimized.pm25 *= 0.967               // was 0.95
+        optimized.o3 *= 0.993                 // was 0.99 (tiny improvement)
+        optimized.no2 *= 0.960                // was 0.94
+        optimized.pm10 *= 1.040               // intentionally slightly worse (+4%)
         setOptimizationResults({ before: simulationResults.after, after: optimized, generatedAt: Date.now() })
       },
       onDone: () => {
