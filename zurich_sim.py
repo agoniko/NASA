@@ -16,7 +16,7 @@ import traci
 # --- 2. PARAMETRI DELLA SIMULAZIONE ---
 SUMOCFG_PATH = "/Users/nicoloagostara/Sumo/2025-10-02-23-11-00/osm.sumocfg"
 SIMULATION_DURATION = 7200  # Secondi
-EDGE_TO_CLOSE = ["4389421#1", "580414174"]  # <-- IMPORTANTE: Sostituisci con l'ID reale del tuo edge
+EDGE_TO_CLOSE = ["35162947#1", "-332455406#1"]  # <-- IMPORTANTE: Sostituisci con l'ID reale del tuo edge
 CLOSURE_TIME = 0  # Secondi
 
 def run_simulation():
