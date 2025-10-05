@@ -21,8 +21,6 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
     const { before, after } = results
     const defs = [
   { key:'avgTravelTimeMin', label:'Average travel time', unit:'min', better:'lower' },
-  { key:'avgDelayMin', label:'Average delay', unit:'min', better:'lower' },
-  { key:'maxDelayMin', label:'Maximum delay', unit:'min', better:'lower' },
   { key:'avgQueueTimeMin', label:'Average queue/wait', unit:'min', better:'lower' },
   { key:'avgSpeedKmh', label:'Average speed change', unit:'km/h', better:'higher' },
       { key:'vkt', label:'Vehicle Kilometres Traveled (VKT)', unit:'km', scale: (v)=> v/1000, decimals:1, better:'depends' },
@@ -51,9 +49,6 @@ export default function PostClosureAnalysisPanel({ onBack, crowdLevel, selectedC
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <h1 style={{ fontSize:20, fontWeight:600, margin:'0 0 6px 0' }}>Network Impact Analysis</h1>
-      <div style={{ fontSize:12.5, color:'#444', marginBottom:14 }}>
-  Simulation results before and after closing the selected segments.
-      </div>
       <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:20 }}>
         <InfoBadge label="Crowd level" value={crowdLevel} />
         <InfoBadge label="Closed segments" value={selectedCount} />
@@ -122,11 +117,11 @@ function InfoBadge({ label, value }) {
 
 function ImpactOverview({ rows }) {
   // Build radar-style polygon for quick multi-metric glance
-  const keys = ['avgTravelTimeMin','avgDelayMin','avgSpeedKmh','vkt','vht','pm25','no2']
+  const keys = ['avgTravelTimeMin','avgSpeedKmh','vkt','vht','pm25','no2']
   const selected = rows.filter(r => keys.includes(r.key))
   if (!selected.length) return null
   // Determine score similarly to previous logic
-  const weightMap = { avgTravelTimeMin:0.18, avgDelayMin:0.18, avgSpeedKmh:0.16, vkt:0.10, vht:0.18, pm25:0.08, no2:0.12 }
+  const weightMap = { avgTravelTimeMin:0.24, avgSpeedKmh:0.20, vkt:0.12, vht:0.22, pm25:0.10, no2:0.12 }
   let score=0
   selected.forEach(c=>{ const w=weightMap[c.key]||0; if(c.better==='higher') score+=w * (-c.change); else if(c.better==='lower') score+=w * (c.change*-1); else score+=w * (-Math.abs(c.change)*0.25) })
   const normalizedScore = Math.max(0, Math.min(100, 55 + score))
@@ -205,10 +200,8 @@ function ImpactOverview({ rows }) {
 function shortLabel(label) {
   return label
   .replace('Average travel time','Travel')
-  .replace('Average delay','Delay')
   .replace('Average speed change','Speed')
   .replace('Vehicle Kilometres Traveled (VKT)','VKT')
   .replace('Vehicle Hours Traveled (VHT)','VHT')
   .replace('Average queue/wait','Queue')
-  .replace('Maximum delay','Max delay')
 }

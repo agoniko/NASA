@@ -34,31 +34,39 @@ export function runDualPhaseSimulation({ onPhaseChange, onProgress, onDone, onRe
     runPhase('closures', closureDuration, () => {
       // Generate mock results. In future replace with real engine outputs.
       const before = {
-        avgTravelTimeMin: 18.2,
-        avgDelayMin: 2.4,
-        maxDelayMin: 9.1,
-        avgQueueTimeMin: 0.8,
-        avgSpeedKmh: 34.5,
-        vkt: 128450, // vehicle-km traveled
-        vht: 37200,  // vehicle-hours traveled (seconds? kept as number)
-        pm25: 14.2,
-        o3: 31.5,
-        no2: 26.3,
-        pm10: 22.0
+        // Baseline ("Before") metrics updated per latest provided dataset.
+        // Queue time: 1.20 minutes
+        // VKT: 125.8 km  -> store in meters-equivalent numeric scale (km * 1000)
+        // VHT: 5.5 hours -> stored in seconds-equivalent numeric scale (hours * 3600)
+        // Air Quality (aggregated from 60,000 vehicles over 60 minutes):
+        //   PM2.5: 24.83 µg/m³, PM10: 12.69 µg/m³, NO2: 6.92 ppb, O3: 35.88 ppb
+        avgTravelTimeMin: 18.2,   // unchanged (no new value supplied)
+        avgDelayMin: 2.4,         // unchanged
+        maxDelayMin: 9.1,         // unchanged
+        avgQueueTimeMin: 1.20,    // updated from 0.8 -> 1.20
+        avgSpeedKmh: 34.5,        // unchanged baseline speed
+        vkt: 125800,              // 125.8 km (scaled for existing table logic /1000)
+        vht: 19800,               // 5.5 h  (scaled for existing table logic /3600)
+        pm25: 15.50,
+        o3: 25.70,
+        no2: 19.30,
+        pm10: 23.00
       };
       // Simple synthetic changes (simulate impact of closures)
       const after = {
-        avgTravelTimeMin: before.avgTravelTimeMin * 1.12,
-        avgDelayMin: before.avgDelayMin * 1.55,
-        maxDelayMin: before.maxDelayMin * 1.35,
-        avgQueueTimeMin: before.avgQueueTimeMin * 1.9,
-        avgSpeedKmh: before.avgSpeedKmh * 0.88,
-        vkt: before.vkt * 0.97, // slight reduction maybe due to avoidance
-        vht: before.vht * 1.18,
-        pm25: before.pm25 * 1.07,
-        o3: before.o3 * 1.01,
-        no2: before.no2 * 1.09,
-        pm10: before.pm10 * 1.06
+        // Adjusted to represent modest, realistic degradation after closures.
+        // Keeping deltas small as requested.
+        avgTravelTimeMin: before.avgTravelTimeMin * 1.05, // +5%
+        avgDelayMin: before.avgDelayMin * 1.15,           // +15%
+        maxDelayMin: before.maxDelayMin * 1.10,           // +10%
+        avgQueueTimeMin: before.avgQueueTimeMin * 1.12,   // +12%
+        avgSpeedKmh: before.avgSpeedKmh * 0.96,           // -4%
+        vkt: before.vkt * 0.99,                           // -1% (slight rerouting reduction)
+        vht: before.vht * 1.06,                           // +6%
+        pm25: before.pm25 * 1.03,                         // +3%
+        o3: before.o3 * 1.005,                            // +0.5%
+        no2: before.no2 * 1.02,                           // +2%
+        pm10: before.pm10 * 1.01                          // +1%
       };
       if (onResults) {
         onResults({ before, after, generatedAt: Date.now() });

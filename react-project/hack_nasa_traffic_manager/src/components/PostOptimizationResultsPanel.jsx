@@ -3,8 +3,6 @@ import React from 'react'
 // Metric configuration (same keys as previous panel but comparing pre-opt (beforeOpt) vs optimized)
 const METRICS = [
   { key:'avgTravelTimeMin', label:'Avg travel time', unit:'min', better:'lower' },
-  { key:'avgDelayMin', label:'Avg delay', unit:'min', better:'lower' },
-  { key:'maxDelayMin', label:'Max delay', unit:'min', better:'lower' },
   { key:'avgQueueTimeMin', label:'Queue time', unit:'min', better:'lower' },
   { key:'avgSpeedKmh', label:'Avg speed', unit:'km/h', better:'higher' },
   { key:'vkt', label:'VKT', unit:'km', scale:v=>v/1000, decimals:1, better:'depends' },
@@ -66,13 +64,13 @@ export default function PostOptimizationResultsPanel({ baseResults, optimization
       <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column' }}>
         <h1 style={{ fontSize:20, fontWeight:600, margin:'0 0 4px 0' }}>Optimized Traffic Flow Dashboard</h1>
         <div style={{ fontSize:12.5, color:'#475569', marginBottom:12 }}>
-          Signal timing & adaptive re-routing applied to mitigate closure impact. Small but meaningful improvements are highlighted.
+          Signal timing & adaptive re-routing applied to mitigate closure impact. Small but meaningful improvements are highlighted. Air quality baseline values derive from aggregated telemetry of <strong>60,000 vehicles over a 60‑minute window</strong>. VKT shown in km (internally stored as metres), VHT shown in hours (internally seconds).
         </div>
         {/* Scrollable analytics section (keeps footer visible) */}
   <div style={{ flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', paddingRight:2 }}>
           <TopSummary score={score} scoreColor={scoreColor} improved={improvedCount} worsened={worsenedCount} neutral={neutralCount} emissionChangePct={emissionChangePct} />
           <div style={{ display:'flex', gap:16, flexWrap:'wrap', margin:'14px 0 12px 0' }}>
-            {rows.filter(r=>['avgTravelTimeMin','avgDelayMin','avgSpeedKmh','avgQueueTimeMin'].includes(r.key)).map(r => (
+            {rows.filter(r=>['avgTravelTimeMin','avgSpeedKmh','avgQueueTimeMin'].includes(r.key)).map(r => (
               <MiniImprovementCard key={r.key} row={r} />
             ))}
           </div>
@@ -187,7 +185,7 @@ function MiniImprovementCard({ row }) {
 }
 
 function Radar({ before, after }) {
-  const keys = ['avgTravelTimeMin','avgDelayMin','avgQueueTimeMin','avgSpeedKmh','vht','pm25','no2']
+  const keys = ['avgTravelTimeMin','avgQueueTimeMin','avgSpeedKmh','vht','pm25','no2']
   const metrics = keys.map(k => ({ key:k, before: before[k], after: after[k], better: METRICS.find(m=>m.key===k)?.better || 'lower' }))
   // Normalize: improvement -> higher radial value
   const norm = metrics.map(m => {
